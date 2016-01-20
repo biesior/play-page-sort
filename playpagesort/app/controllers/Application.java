@@ -2,27 +2,27 @@ package controllers;
 
 import com.avaje.ebean.PagedList;
 import models.ConversationModel;
-import play.*;
-import play.mvc.*;
+import play.mvc.Controller;
+import play.mvc.Result;
+import views.html.index;
 
-import views.html.*;
+import java.util.Arrays;
+import java.util.List;
 
 public class Application extends Controller {
 
-    public Result index() {
+    public Result index(String sortBy, String order, String filter) {
 
+        List<String> allowedFields = Arrays.asList("conversation.id", "conversation.name", "events.time", "events.id", "events.content");
+        List<String> allowedOrders = Arrays.asList("ASC", "DESC");
 
-        PagedList<ConversationModel> page = ConversationModel.page(0, 10,  "name", "asc", "");
+        if (!allowedFields.contains(sortBy)) sortBy = "events.time";
+        if (!allowedOrders.contains(order)) order = "DESC";
 
-        for(ConversationModel conversation : page.getList()) {
-            Logger.debug("----------");
-            Logger.debug("Conversation: " + conversation.getName() +  "; ID" + conversation.id);
-            Logger.debug("Conversation Last Message: " + conversation.getLastEventTime());
-            Logger.debug("----------");
-        }
+        PagedList<ConversationModel> page = ConversationModel.page(0, 10, sortBy, order, filter);
 
-
-        return ok(index.render("Your new application is ready."));
+        return ok(index.render(page, sortBy, order));
     }
+
 
 }

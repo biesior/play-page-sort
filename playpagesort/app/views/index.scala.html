@@ -1,7 +1,60 @@
-@(message: String)
+@(page: com.avaje.ebean.PagedList[ConversationModel], sortBy: String, order: String)
 
 @main("Welcome to Play") {
 
-    @play20.welcome(message, style = "Java")
+    <table>
+        <tr>
+            <td><b>Sorting</b></td>
+            <td colspan="2"><a href='@routes.Application.index()'>Default (events.time DESC)</a></td>
+        </tr>
+        <tr>
+            <td colspan="3"><b>Conversation</b></td>
+        </tr>
+        <tr>
+            <td><b>- ID</b></td>
+            <td><a href='@routes.Application.index("conversation.id", "ASC")'>ASC</a></td>
+            <td><a href='@routes.Application.index("conversation.id", "DESC")'>DESC</a></td>
+        </tr>
+        <tr>
+            <td><b>- name</b></td>
+            <td><a href='@routes.Application.index("conversation.name", "ASC")'>ASC</a></td>
+            <td><a href='@routes.Application.index("conversation.name", "DESC")'>DESC</a></td>
+        </tr>
+        <tr>
+            <td colspan="3"><b>Event</b></td>
+        </tr>
+        <tr>
+            <td><b>- ID</b></td>
+            <td><a href='@routes.Application.index("events.id", "ASC")'>ASC</a></td>
+            <td><a href='@routes.Application.index("events.id", "DESC")'>DESC</a></td>
+        </tr>
+        <tr>
+            <td><b>- time</b></td>
+            <td><a href='@routes.Application.index("events.time", "ASC")'>ASC</a></td>
+            <td><a href='@routes.Application.index("events.time", "DESC")'>DESC</a></td>
+        </tr>
+        <tr>
+            <td><b>- content</b></td>
+            <td><a href='@routes.Application.index("events.content", "ASC")'>ASC</a></td>
+            <td><a href='@routes.Application.index("events.content", "DESC")'>DESC</a></td>
+        </tr>
+
+    </table>
+
+    <br> <br>
+    <b>Currently sorted by: </b> @sortBy @order
+
+    <ul>
+        @for(conversation <- page.getList) {
+            <li>
+                @conversation.getName
+                <ul>
+                    @for(msg <- conversation.events) {
+                        <li>(ID: @msg.id) @msg.time.format("yyyy.MM.dd") : @msg.getContent</li>
+                    }
+                </ul>
+            </li>
+        }
+    </ul>
 
 }

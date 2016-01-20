@@ -1,12 +1,10 @@
 package models;
 
-import com.avaje.ebean.Ebean;
-import com.avaje.ebean.Expr;
-import com.avaje.ebean.Model;
-import com.avaje.ebean.PagedList;
+import com.avaje.ebean.*;
 import org.apache.commons.lang3.StringEscapeUtils;
 
 import javax.persistence.*;
+import javax.persistence.OrderBy;
 import java.util.Date;
 import java.util.List;
 import java.util.ListIterator;
@@ -22,11 +20,15 @@ public class ConversationModel extends Model {
     public Long id;
 
 
-    private String name;
+    public String name;
 
-    @OneToMany(mappedBy="conversation", cascade= CascadeType.ALL)
-    @OrderBy("time ASC")
-    public List<EventModel> events;
+    public String comment;
+
+    public Boolean isActive;
+
+    @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL)
+    @OrderBy("time DESC")
+    public List<MessageEventModel> events;
 
 
     public ConversationModel(String name) {
@@ -36,13 +38,13 @@ public class ConversationModel extends Model {
 
     public Date getLastEventTime() {
 
-        ListIterator<EventModel> li = this.events.listIterator(this.events.size());
+        ListIterator<MessageEventModel> li = this.events.listIterator(this.events.size());
         //Iterator<EventModel> li = this.events.iterator();
 
         Date lastDate = null;
-        while(li.hasPrevious()) {
+        while (li.hasPrevious()) {
             EventModel event = li.previous();
-            if(event instanceof MessageEventModel) {
+            if (event instanceof MessageEventModel) {
                 lastDate = event.time;
                 break;
             }
@@ -50,7 +52,6 @@ public class ConversationModel extends Model {
 
         return lastDate;
     }
-
 
 
     public static Finder<Long, ConversationModel> find = new Finder<>(ConversationModel.class);
@@ -71,72 +72,63 @@ public class ConversationModel extends Model {
     }
 
 
+    public List<MessageEventModel> getLatestEvents(int offset, int count) {
 
-    public List<EventModel> getLatestEvents(int offset, int count) {
-
-        if(offset < 0) {
+        if (offset < 0) {
             offset = 0;
-        } else if(offset > this.events.size()) {
-            offset= this.events.size();
+        } else if (offset > this.events.size()) {
+            offset = this.events.size();
         }
 
 
         int toIndex = (this.events.size()) - offset;
         int fromIndex = toIndex - count;
 
-        if(fromIndex < 0 ) {
+        if (fromIndex < 0) {
             fromIndex = 0;
         }
 
         return this.events.subList(fromIndex, toIndex);
     }
 
-
-
-
     /**
      * Return a page of conversations
      *
-     * @param page Page to display
+     * @param page     Page to display
      * @param pageSize Number of computers per page
-     * @param sortBy Computer property used for sorting
-     * @param order Sort order (either or asc or desc)
-     * @param filter Filter applied on the name column
+     * @param sortBy   Computer property used for sorting
+     * @param order    Sort order (either or asc or desc)
+     * @param filter   Filter applied on the name column
      */
     public static PagedList<ConversationModel> page(int page, int pageSize, String sortBy, String order, String filter) {
 
+        String sortField = (("ASC".equals(order)) ? "min" : "max") + "(" + sortBy + ")";
+
+        RawSql rawSql = RawSqlBuilder.parse(
+                "SELECT conversation.id , conversation.name, " + sortField + " sortingField "
+                        + " FROM gom_conversation conversation left outer join gom_event events "
+                        + " on events.conversation_id = conversation.id AND events.dtype = 'message' "
+                        + " WHERE conversation.name like :search "
+                        + " GROUP BY conversation.id "
+                        + " ORDER BY " + sortField + " " + order)
+                .columnMappingIgnore(sortField)
+                .columnMapping("conversation.id", "id")
+                .columnMapping("conversation.name", "name")
+                .create();
 
 
-//            return Ebean
-//                    .createQuery(
-//                            ConversationModel.class,
-//                            "WHERE lower(name) like :search GROUP BY id"
-//                    )
-//                    .setParameter("search","%"+filter+"%")
-//                    .order("events.time DESC")
-//                    .findPagedList(page, pageSize);
-
-            return find.where()
-                    .disjunction()
-                    .add(Expr.ilike("name", "%" + filter + "%"))
-                    .add(Expr.and(
-                            Expr.eq("events.dtype", "message"),
-                            Expr.ilike("events.content", "%" + filter + "%"))
-                    )
-                    //.orderBy("events.time desc, " + sortBy + " " + order)
-                    .orderBy(sortBy + " " + order)
-                    //.setDistinct(true)
-                    .findPagedList(page, pageSize);
-
+        return Ebean.find(ConversationModel.class)
+                .setRawSql(rawSql)
+                .setParameter("search", "%" + filter + "%")
+                .findPagedList(page, pageSize);
 
     }
 
 
     public String getName() {
 
-        if(this.name == null) {
-            String name = "";
-            return name;
+        if (this.name == null) {
+            return "";
         }
 
         return StringEscapeUtils.unescapeJava(this.name);
